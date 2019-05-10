@@ -5,11 +5,21 @@ class Snake(headCord: (Int, Int), bodyCords: Seq[(Int, Int)], direction: String)
     def head: (Int, Int) = headCord
     def dir: String = direction
 
-    def next: Snake = direction match {
-        case "left" => new Snake( (headCord._1-1, headCord._2), headCord +: bodyCords.init, direction )
-        case "up" => new Snake( (headCord._1, headCord._2-1), headCord +: bodyCords.init, direction )
-        case "right" => new Snake( (headCord._1+1, headCord._2), headCord +: bodyCords.init, direction )
-        case "down" => new Snake( (headCord._1, headCord._2+1), headCord +: bodyCords.init, direction )
+    def next(input: Char): Snake = {
+        val newDir = input match {
+            case 'a' if ("right" != direction) => "left"
+            case 'w' if ("down" != direction) => "up"
+            case 'd' if ("left" != direction) => "right"
+            case 's' if ("up" != direction) => "down"
+            case _ => direction
+        }
+
+        newDir match {
+            case "left" => new Snake( (headCord._1-1, headCord._2), headCord +: bodyCords.init, newDir )
+            case "up" => new Snake( (headCord._1, headCord._2-1), headCord +: bodyCords.init, newDir )
+            case "right" => new Snake( (headCord._1+1, headCord._2), headCord +: bodyCords.init, newDir )
+            case "down" => new Snake( (headCord._1, headCord._2+1), headCord +: bodyCords.init, newDir )
+        }
     }
 }
 
@@ -23,7 +33,7 @@ class Game(h: Int, w: Int) {
     val width = w
 
     val initSnakeBody = Seq((14,5), (15,5), (16,5))
-    val initSnake = new Snake( (13,5), initSnakeBody, "up")
+    val initSnake = new Snake( (13,5), initSnakeBody, "left")
     val emptyBoard = initialBoard(height, width)
 
     private def initialBoard(targetRows: Int, targetCols: Int): Vec[Vec[Char]] = {
@@ -62,8 +72,8 @@ class Game(h: Int, w: Int) {
             board.foreach(n => println("|" + n.mkString("") + "|" ))
             prettyPrint
             // --- --- ---
-            Thread.sleep(500)
-            helper(snake.next)
+            //Thread.sleep(500)
+            helper(snake.next(io.StdIn.readChar))
         }
         helper(initSnake)
     }
