@@ -24,10 +24,10 @@ class Snake(headCord: (Int, Int), bodyCords: Seq[(Int, Int)], direction: String)
         }
 
         newSnake.head match {
-            case (x, y) if (x == -1) => new Snake ((board.head.size-1, y), newSnake.body, newSnake.dir)
-            case (x, y) if (x == board.head.size) => new Snake ( (0, y), newSnake.body, newSnake.dir)
-            case (x, y) if (y == -1) => new Snake ((x, board.size-1), newSnake.body, newSnake.dir)
-            case (x, y) if (y == board.size) => new Snake ((x, 0), newSnake.body, newSnake.dir)
+            case (x, y) if (x < 0) => new Snake ((board.head.size-1, y), newSnake.body, newSnake.dir)
+            case (x, y) if (x >= board.head.size) => new Snake ( (0, y), newSnake.body, newSnake.dir)
+            case (x, y) if (y < 0) => new Snake ((x, board.size-1), newSnake.body, newSnake.dir)
+            case (x, y) if (y >= board.size) => new Snake ((x, 0), newSnake.body, newSnake.dir)
             case _ => newSnake
         }
     }
@@ -61,27 +61,29 @@ class Game(h: Int, w: Int) {
 
     val height = h
     val width = w
+    private val halfHeight = (height/2).floor.toInt
+    private val halfWidth = (width/2).floor.toInt
 
-    val initSnakeBody = Seq((14,5), (15,5), (16,5))
-    val initSnake = new Snake( (13,5), initSnakeBody, "left")
-    val emptyBoard = initialBoard(height, width)
-    val initApple = new Apple(0,0)
+    private val initSnakeBody = Seq((halfWidth+1, halfHeight), (halfWidth+2, halfHeight), (halfWidth+3, halfHeight))
+    private val initSnake = new Snake( (halfWidth, halfHeight), initSnakeBody, "left")
+    private val emptyBoard = this.generateBoard
+    private val initApple = new Apple(0,0)
 
-    private def initialBoard(targetRows: Int, targetCols: Int): Vec[Vec[Char]] = {
+    private def generateBoard: Vec[Vec[Char]] = {
         val empty2D = Vec.empty[Vec[Char]]
         val empty1D = Vec.empty[Char]
+        val targetRows = this.height
+        val targetCols = this.width
         val fillChar = ' '
-
-        def helper(row: Int, col: Int, tempOut: Vec[Char], board: Vec[Vec[Char]]): Vec[Vec[Char]] = (row, col) match {
-            case (row, col) if (row == targetRows && col == targetCols) => board 
-            case (row, col) if (col == targetCols) => helper(row+1, 0, empty1D, board :+ tempOut)
-            case (row, col) => helper(row, col+1, tempOut :+ fillChar, board)
+        
+        def helper(board: Vec[Vec[Char]]): Vec[Vec[Char]] = board match {
+            case board if (board.size == targetRows) => board
+            case board => helper(board :+ empty1D.padTo(targetCols, fillChar))
         }
-
-        helper(0, 0, empty1D, empty2D)
+        helper(empty2D)
     }
 
-    private def snakeBoard(snake: Snake, apple: Apple, board: Vec[Vec[Char]]): Vec[Vec[Char]] = {
+    private def snakeAppleBoard(snake: Snake, apple: Apple, board: Vec[Vec[Char]]): Vec[Vec[Char]] = {
         val bodylessBoard = board.updated(snake.head._2,
                             board(snake.head._2).updated(snake.head._1, 'X'))
         
@@ -96,25 +98,40 @@ class Game(h: Int, w: Int) {
         helper(snake.body, appleBoard)
     }
 
+    private def isSnakeDead(snake: Snake): Boolean = snake.body.init.exists(_ == snake.head)
+    private def isAppleEaten(apple: Apple, snake: Snake): Boolean = snake.head == apple.pos
+
     def render: Unit = {
         def prettyPrint: Unit = println("+" + "-" * width + "+")
 
-        def helper(snake: Snake, apple: Apple): Unit = {
-            print("\u001b[2J")
-            val board = snakeBoard(snake, apple, emptyBoard)
+        def helper(snake: Snake, apple: Apple, score: Int): Unit = {
+            print("\u001b[2J") // 'clear screen' character
+            val board = snakeAppleBoard(snake, apple, emptyBoard)
             // --- --- ---
                 prettyPrint
                 board.foreach(n => println("|" + n.mkString("") + "|" ))
                 prettyPrint
+                println(s"Score: $score")
             // --- --- ---
-            val input = io.StdIn.readChar
+            val input = io.StdIn.readLine.headOption match {
+                case Some(char) => char
+                case None => ' '
+            }
             val appleCheckedSnake = snake.next(input, emptyBoard).appleCheck(apple)
-            val nextApple = apple.next(appleCheckedSnake, emptyBoard)
+            lazy val nextApple = apple.next(appleCheckedSnake, emptyBoard)
 
-            if (appleCheckedSnake.head == apple.pos) helper(appleCheckedSnake, nextApple)
-            else helper(appleCheckedSnake, apple)
+            isSnakeDead(appleCheckedSnake) match {
+                case true => {
+                    println("You lost. Great job.")
+                    return ()
+                }
+                case false => isAppleEaten(apple, appleCheckedSnake) match {
+                    case true => helper(appleCheckedSnake, nextApple, score+snake.whole.size)
+                    case false => helper(appleCheckedSnake, apple, score)
+                }
+            }
         }
-        helper(initSnake, initApple)
+        helper(initSnake, initApple.next(initSnake, emptyBoard), 0)
     }
 
 }
